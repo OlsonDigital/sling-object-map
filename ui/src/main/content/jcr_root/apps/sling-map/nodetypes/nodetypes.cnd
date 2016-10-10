@@ -1,0 +1,11 @@
+<'map'='http://www.icfolson.com/sling/sling-map/1.0'>
+
+[map:MappedObject]
+  mixin
+  - map:bundleName (string)
+  - map:runtimeClass (string)
+  - map:interfaceClass (string)
+
+[map:Reference]
+  mixin
+  - map:referencePath (string)

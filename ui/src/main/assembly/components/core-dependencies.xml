@@ -1,0 +1,14 @@
+<component>
+    <dependencySets>
+        <dependencySet>
+            <outputDirectory>jcr_root/apps/sling-map/install</outputDirectory>
+            <useProjectArtifact>false</useProjectArtifact>
+            <scope>compile</scope>
+            <includes>
+                <include>com.icfolson.sling:sling-object-map-api</include>
+                <include>com.icfolson.sling:sling-object-map-runtime</include>
+            </includes>
+            <useStrictFiltering>true</useStrictFiltering>
+        </dependencySet>
+    </dependencySets>
+</component>
