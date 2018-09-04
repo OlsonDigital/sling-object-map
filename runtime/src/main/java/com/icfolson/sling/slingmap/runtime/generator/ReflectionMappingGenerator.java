@@ -1,24 +1,14 @@
 package com.icfolson.sling.slingmap.runtime.generator;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.icfolson.sling.slingmap.api.basictype.BasicTypeConverter;
 import com.icfolson.sling.slingmap.api.basictype.BasicTypeReader;
 import com.icfolson.sling.slingmap.api.basictype.BasicTypeRegistry;
 import com.icfolson.sling.slingmap.api.basictype.BasicTypeWriter;
-import com.icfolson.sling.slingmap.api.domain.ChangeType;
-import com.icfolson.sling.slingmap.api.domain.MergeContext;
-import com.icfolson.sling.slingmap.api.domain.ObjectMerger;
-import com.icfolson.sling.slingmap.api.domain.ObjectReader;
-import com.icfolson.sling.slingmap.api.domain.ObjectWriter;
-import com.icfolson.sling.slingmap.api.domain.ReadContext;
-import com.icfolson.sling.slingmap.api.domain.WriteContext;
+import com.icfolson.sling.slingmap.api.domain.*;
 import com.icfolson.sling.slingmap.api.exception.MappingException;
 import com.icfolson.sling.slingmap.api.generator.MappingGenerator;
-import com.icfolson.sling.slingmap.runtime.domain.CompositeObjectMerger;
-import com.icfolson.sling.slingmap.runtime.domain.CompositeObjectReader;
-import com.icfolson.sling.slingmap.runtime.domain.CompositeObjectWriter;
-import com.icfolson.sling.slingmap.runtime.domain.ItemMerger;
-import com.icfolson.sling.slingmap.runtime.domain.ItemReader;
-import com.icfolson.sling.slingmap.runtime.domain.ItemWriter;
+import com.icfolson.sling.slingmap.runtime.domain.*;
 import com.icfolson.sling.slingmap.runtime.registry.types.basic.BasicValueObjectMerger;
 import com.icfolson.sling.slingmap.runtime.registry.types.basic.BasicValueObjectReader;
 import com.icfolson.sling.slingmap.runtime.registry.types.basic.BasicValueObjectWriter;
@@ -58,7 +48,7 @@ public class ReflectionMappingGenerator implements MappingGenerator {
         try {
             final BeanInfo beanInfo = Introspector.getBeanInfo(inputClass);
             for (final PropertyDescriptor property: beanInfo.getPropertyDescriptors()) {
-                final String propertyName = property.getName();
+                final String propertyName = getName(property);
                 final Method setter = property.getWriteMethod();
                 final Method getter = property.getReadMethod();
                 if (setter != null && getter != null) {
@@ -87,7 +77,7 @@ public class ReflectionMappingGenerator implements MappingGenerator {
         try {
             final BeanInfo beanInfo = Introspector.getBeanInfo(inputClass);
             for (final PropertyDescriptor property: beanInfo.getPropertyDescriptors()) {
-                final String propertyName = property.getName();
+                final String propertyName = getName(property);
                 final Method getter = property.getReadMethod();
                 final Method setter = property.getWriteMethod();
                 if (getter != null && setter != null) {
@@ -116,7 +106,7 @@ public class ReflectionMappingGenerator implements MappingGenerator {
         try {
             final BeanInfo beanInfo = Introspector.getBeanInfo(inputClass);
             for (final PropertyDescriptor property: beanInfo.getPropertyDescriptors()) {
-                final String propertyName = property.getName();
+                final String propertyName = getName(property);
                 final Method getter = property.getReadMethod();
                 final Method setter = property.getWriteMethod();
                 if (getter != null && setter != null) {
@@ -150,7 +140,7 @@ public class ReflectionMappingGenerator implements MappingGenerator {
 
         @Override
         public void read(final Resource resource, final Object object, final ReadContext readContext)
-            throws MappingException {
+                throws MappingException {
 
             try {
                 Object value = resource.getValueMap().get(propertyName);
@@ -176,7 +166,7 @@ public class ReflectionMappingGenerator implements MappingGenerator {
 
         @Override
         public void read(final Resource resource, final Object object, final ReadContext readContext)
-            throws MappingException {
+                throws MappingException {
 
             final Resource child = MappedResourceUtil.getPotentiallyNonExistingChild(resource, childName);
             readContext.recursiveRead(child, value -> {
@@ -203,7 +193,7 @@ public class ReflectionMappingGenerator implements MappingGenerator {
 
         @Override
         public void write(final Object object, final Resource resource, final WriteContext writeContext)
-            throws MappingException {
+                throws MappingException {
 
             try {
                 Object value = getter.invoke(object);
@@ -232,7 +222,7 @@ public class ReflectionMappingGenerator implements MappingGenerator {
 
         @Override
         public void write(final Object object, final Resource resource, final WriteContext writeContext)
-            throws MappingException {
+                throws MappingException {
 
             try {
                 final Object value = getter.invoke(object);
@@ -260,7 +250,7 @@ public class ReflectionMappingGenerator implements MappingGenerator {
 
         @Override
         public void merge(final Object object, final Resource resource, final MergeContext context)
-            throws MappingException {
+                throws MappingException {
 
             try {
                 Object updated = getter.invoke(object);
@@ -296,7 +286,7 @@ public class ReflectionMappingGenerator implements MappingGenerator {
 
         @Override
         public void merge(final Object instance, final Resource resource, final MergeContext context)
-            throws MappingException {
+                throws MappingException {
 
             try {
                 final Object childObject = getter.invoke(instance);
@@ -308,4 +298,47 @@ public class ReflectionMappingGenerator implements MappingGenerator {
         }
     }
 
+    private String getName(final PropertyDescriptor property) {
+        final Method method = property.getReadMethod();
+        final String jsonPropertyValue = findJsonPropertyValue(method);
+        return jsonPropertyValue != null ? jsonPropertyValue : property.getName();
+    }
+
+    private String findJsonPropertyValue(final Method method) {
+        final String name = method.getName();
+        final Class<?>[] parameterTypes = method.getParameterTypes();
+        Class<?> methodClass = method.getDeclaringClass();
+        try {
+            while (!methodClass.equals(Object.class)) {
+                final Method m = methodClass.getMethod(name, parameterTypes);
+                final String jsonPropertyValue = getJsonPropertyValue(m);
+                if (jsonPropertyValue != null) {
+                    return jsonPropertyValue;
+                }
+                methodClass = methodClass.getSuperclass();
+            }
+        } catch (NoSuchMethodException e) { }
+        final Class<?>[] interfaces = method.getDeclaringClass().getInterfaces();
+        for (Class<?> i : interfaces) {
+            try {
+                final Method m = i.getMethod(name, parameterTypes);
+                final String jsonPropertyValue = getJsonPropertyValue(m);
+                if (jsonPropertyValue != null) {
+                    return jsonPropertyValue;
+                }
+            } catch (NoSuchMethodException e) { }
+        }
+        return null;
+    }
+
+    private String getJsonPropertyValue(final Method method) {
+        if (method.isAnnotationPresent(JsonProperty.class)) {
+            final JsonProperty annotation = method.getAnnotation(JsonProperty.class);
+            final String value = annotation.value();
+            if (!value.isEmpty()) {
+                return value;
+            }
+        }
+        return null;
+    }
 }

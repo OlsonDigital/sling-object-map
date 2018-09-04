@@ -108,12 +108,12 @@ public class DefaultObjectMapper implements ObjectMapper {
     }
 
     /**
-     * Coordinates the read of a tree of Java objets from a Sling resource tree.  In order to handle reference nodes
+     * Coordinates the read of a tree of Java objects from a Sling resource tree.  In order to handle reference nodes
      * properly, the algorithm for reading in an object graph is as follows:
      *
      * When instantiating a class containing a reference, a request to read a child resource is submitted.  This
-     * request will create the child instance immeditately (if the corresponding child resource exists), but will not
-     * return it to the requestor until the child's enture subgraph (including its outgoing references, and its
+     * request will create the child instance immediately (if the corresponding child resource exists), but will not
+     * return it to the requestor until the child's entire subgraph (including its outgoing references, and its
      * children's outgoing references, etc.) are fully initialized.  As such, instantiation will proceed outward from
      * the root object in a breadth-first manner, but the assignment of references will happen starting at the leaf
      * nodes.  The final object to have referenced instances assigned will be the root node, which will then be returned
@@ -159,14 +159,21 @@ public class DefaultObjectMapper implements ObjectMapper {
             final String path = readItem.path;
             final Callback cb = readItem.callback;
             final Resource target = resolver.resolve(path);
-            final Class<?> type = ClassUtil.tryLoadClassForSerializedResource(target);
-            if (type == null) {
-                tryReadReference(target, cb);
-            } else {
-                final ObjectReader reader = readerWriterRegistry.getReader(type);
-                final Object out = reader.read(target, this);
+            final Class<?> modelType = ClassUtil.tryLoadModelClassForSerializedResource(target);
+            if (modelType != null) {
+                final Object out = target.adaptTo(modelType);
                 readObjects.put(target.getPath(), out);
                 readItem.objectRead(out);
+            } else {
+                final Class<?> classType = ClassUtil.tryLoadClassForSerializedResource(target);
+                if (classType == null) {
+                    tryReadReference(target, cb);
+                } else {
+                    final ObjectReader reader = readerWriterRegistry.getReader(classType);
+                    final Object out = reader.read(target, this);
+                    readObjects.put(target.getPath(), out);
+                    readItem.objectRead(out);
+                }
             }
         }
 

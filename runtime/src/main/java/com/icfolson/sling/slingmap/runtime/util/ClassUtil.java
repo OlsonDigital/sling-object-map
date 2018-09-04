@@ -3,8 +3,12 @@ package com.icfolson.sling.slingmap.runtime.util;
 import com.icfolson.sling.slingmap.api.constants.JcrProperties;
 import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.Resource;
+import org.apache.sling.models.annotations.Model;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
+
+import java.lang.reflect.AnnotatedType;
+import java.lang.reflect.Proxy;
 
 public final class ClassUtil {
 
@@ -19,12 +23,34 @@ public final class ClassUtil {
         return tryLoadClass(containingBundle, className);
     }
 
+    public static Class<?> tryLoadModelClassForSerializedResource(final Resource resource) {
+        final String className = resource.getValueMap().get(JcrProperties.MODEL_CLASS, String.class);
+        if (className != null) {
+            try {
+                return Class.forName(className);
+            } catch (ClassNotFoundException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     public static void writeClassDataToResource(final Class<?> objectClass, final Resource resource) {
         ModifiableValueMap properties = resource.adaptTo(ModifiableValueMap.class);
-        properties.put(JcrProperties.RUNTIME_CLASS, objectClass.getName());
-        final Bundle bundle = FrameworkUtil.getBundle(objectClass);
-        if (bundle != null) {
-            properties.put(JcrProperties.BUNDLE_NAME, bundle.getSymbolicName());
+        if (Proxy.isProxyClass(objectClass)) {
+            final AnnotatedType[] annotatedInterfaces = objectClass.getAnnotatedInterfaces();
+            for (AnnotatedType annotatedInterface : annotatedInterfaces) {
+                if (annotatedInterface.isAnnotationPresent(Model.class)) {
+                    properties.put(JcrProperties.MODEL_CLASS, annotatedInterface.getClass().getName());
+                    break;
+                }
+            }
+        } else {
+            properties.put(JcrProperties.RUNTIME_CLASS, objectClass.getName());
+            final Bundle bundle = FrameworkUtil.getBundle(objectClass);
+            if (bundle != null) {
+                properties.put(JcrProperties.BUNDLE_NAME, bundle.getSymbolicName());
+            }
         }
     }
 
@@ -56,6 +82,7 @@ public final class ClassUtil {
         return thisBundle;
     }
 
-    private ClassUtil() { }
+    private ClassUtil() {
+    }
 
 }
