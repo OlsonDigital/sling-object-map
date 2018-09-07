@@ -79,7 +79,7 @@ public final class ClassUtil {
                 }
             }
         }
-        return thisBundle;
+        return null;
     }
 
     private ClassUtil() {
