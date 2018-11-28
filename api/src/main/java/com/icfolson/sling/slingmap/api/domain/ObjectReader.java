@@ -8,6 +8,8 @@ import org.apache.sling.api.resource.Resource;
  */
 public interface ObjectReader {
 
+    Object read(final Resource resource, final ReadContext readContext, final Class<?> modelType) throws MappingException;
+
     Object read(final Resource resource, final ReadContext readContext) throws MappingException;
 
 }

@@ -27,6 +27,17 @@ public abstract class ClassObjectReader implements ObjectReader {
         return null;
     }
 
+    @Override
+    public final Object read(final Resource resource, final ReadContext readContext, final Class<?> modelType)
+            throws MappingException {
+
+        if (resource == null || ResourceUtil.isNonExistingResource(resource)) {
+            return null;
+        }
+
+        return doRead(modelType, resource, readContext);
+    }
+
     protected abstract Object doRead(final Class<?> objClass, final Resource resource, final ReadContext readContext)
         throws MappingException;
 

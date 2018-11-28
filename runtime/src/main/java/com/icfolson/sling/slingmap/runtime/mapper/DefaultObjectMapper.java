@@ -50,7 +50,8 @@ public class DefaultObjectMapper implements ObjectMapper {
 
     @Override
     public <T> T readObject(final Resource resource, final Class<T> type) throws MappingException {
-        return (T) readObject(resource);
+        final DefaultReadContext context = new DefaultReadContext(resource, type);
+        return (T) context.readObject();
     }
 
     @Override
@@ -127,12 +128,18 @@ public class DefaultObjectMapper implements ObjectMapper {
         private RootCallback rootCallback;
         private ReadItem rootItem;
         private ReadItem current;
+        private Class<?> deserializationType;
 
-        public DefaultReadContext(final Resource resource) throws MappingException {
+        public DefaultReadContext(final Resource resource, final Class<?> deserializationType) throws MappingException {
+            this.deserializationType = deserializationType;
             resolver = resource.getResourceResolver();
             rootCallback = new RootCallback();
             rootItem = new ReadItem(resource.getPath(), rootCallback);
             itemQueue.add(rootItem);
+        }
+
+        public DefaultReadContext(final Resource resource) throws MappingException {
+            this(resource, null);
         }
 
         public Object readObject() throws MappingException {
@@ -159,6 +166,18 @@ public class DefaultObjectMapper implements ObjectMapper {
             final String path = readItem.path;
             final Callback cb = readItem.callback;
             final Resource target = resolver.resolve(path);
+            // Case 1: Type explicitly specified
+            if  (deserializationType != null) {
+                final ObjectReader reader = readerWriterRegistry.getReader(deserializationType);
+                Object out = reader.read(target, this, deserializationType);
+                if (out == null) {
+                    out = target.adaptTo(deserializationType);
+                }
+                readObjects.put(target.getPath(), out);
+                readItem.objectRead(out);
+                return;
+            }
+            // Case 2: Type must be inferred
             final Class<?> modelType = ClassUtil.tryLoadModelClassForSerializedResource(target);
             if (modelType != null) {
                 final Object out = target.adaptTo(modelType);
