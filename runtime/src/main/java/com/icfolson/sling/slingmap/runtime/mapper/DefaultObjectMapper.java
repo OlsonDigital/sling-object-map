@@ -166,7 +166,7 @@ public class DefaultObjectMapper implements ObjectMapper {
             final String path = readItem.path;
             final Callback cb = readItem.callback;
             final Resource target = resolver.resolve(path);
-            // Case 1: Type explicitly specified
+            // Case 1: Type explicitly specified (root only)
             if  (deserializationType != null) {
                 final ObjectReader reader = readerWriterRegistry.getReader(deserializationType);
                 Object out = reader.read(target, this, deserializationType);
@@ -175,6 +175,7 @@ public class DefaultObjectMapper implements ObjectMapper {
                 }
                 readObjects.put(target.getPath(), out);
                 readItem.objectRead(out);
+                deserializationType = null; // only root can be specified -- infer types from class definition from now
                 return;
             }
             // Case 2: Type must be inferred
